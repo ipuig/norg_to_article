@@ -58,7 +58,7 @@ pub fn fill(list: *List, content: []const u8) !void {
             try list.lists.append(copy.items);
         }
 
-        try buf_list.append([_]usize{start, end});
+        try buf_list.append([_]usize{start+2, end});
         prev = end;
     }
 

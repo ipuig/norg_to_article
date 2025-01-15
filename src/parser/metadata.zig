@@ -73,13 +73,11 @@ pub fn extract(input: []const u8) !Metadata {
         .date = Date{.day = 0, .month = 0, .year = 0},
         .lock = false,
         .end = 0,
-
     };
 
     while (lines.next()) |line| {
         if (std.mem.startsWith(u8, line, "@end")) break;
         var i: usize = 0;
-
 
         const key = while (i < line.len) : (i += 1) {
             if (line[i] == ':') break line[0..i];
