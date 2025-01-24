@@ -7,5 +7,5 @@ const Widget = @import("parser/widget.zig");
 const Parser = @import("parser/parser.zig");
 
 pub fn main() !void {
-    try Parser.toHTML("/Users/ipuig/.products/norg_html/src/Index.norg");
+    try Parser.parse("/Users/ipuig/Documents/Posts/");
 }

@@ -89,6 +89,6 @@ pub fn extract(input: []const u8) !Metadata {
         }
     }
 
-    metadata.end = lines.index;
+    metadata.end = lines.index + 1;
     return metadata;
 }

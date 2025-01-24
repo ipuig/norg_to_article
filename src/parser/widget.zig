@@ -57,7 +57,7 @@ fn widget(content: []const u8, idx: *usize) ?Wdef {
 
     if (lines.next()) |header| {
         var i: usize = 0;
-        while (header[i] != ' ' and i < header.len): (i += 1) {}
+        while (i < header.len and header[i] != ' '): (i += 1) {}
         if (i < 5) return null;
         if (std.mem.eql(u8, header[0..i], "@code")) { wdef.kind = .code; }
         else if (std.mem.eql(u8, header[0..i], "@table")) { wdef.kind = .table; }

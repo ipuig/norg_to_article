@@ -51,8 +51,8 @@ pub fn fill(self: *Paragraph, content: []const u8) !void {
 }
 
 fn isParagraph(text: []const u8) struct{bool, usize} {
-    if (text.len < 1) return .{false, 0};
     const trimmed = std.mem.trimLeft(u8, text, " \t");
+    if (trimmed.len < 1) return .{false, 0};
     return .{ (trimmed[0] >= 48 and trimmed[0] <= 57) or (trimmed[0] >= 65 and trimmed[0] <= 126),
         text.len - trimmed.len
     };

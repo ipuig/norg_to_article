@@ -45,7 +45,7 @@ pub fn fill(list: *List, content: []const u8) !void {
     var buf_list = std.ArrayList([2]usize).init(list.allocator);
     defer buf_list.deinit();
     
-    while (i < list.coordinates.items.len - 1) : (i += 2) {
+    while (list.coordinates.items.len > 1 and i < list.coordinates.items.len - 1) : (i += 2) {
         const items = buf_list.items;
         const start = list.coordinates.items[i];
         const end = list.coordinates.items[i + 1];

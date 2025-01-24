@@ -7,14 +7,74 @@ const Widget = @import("widget.zig");
 const Paragraph = @import("paragraph.zig");
 const Metadata = @import("metadata.zig");
 
-pub fn toHTML(path: []const u8) !void {
-    var file_buf: [1024 * 256]u8 = undefined;
-    const file = try std.fs.openFileAbsolute(path, .{ .mode =  .read_only});
-    defer file.close();
+pub fn parse(path: []const u8) !void {
+    var root = try std.fs.openDirAbsolute(path, .{.iterate = true});
+    defer root.close();
 
-    const written = try file.reader().readAll(&file_buf);
-    const input = file_buf[0..written];
+    var cwd = try std.fs.cwd().openDir(".", .{.iterate = true});
+    defer cwd.close();
 
+    cwd.makeDir("out") catch |err| switch(err) {
+        std.fs.Dir.MakeError.PathAlreadyExists => {},
+        else => unreachable
+    };
+
+    var output = try cwd.openDir("out", .{});
+    defer output.close();
+
+    var it = root.iterate();
+    while (try it.next()) |dir| {
+        if (std.mem.eql(u8, ".git", dir.name)) continue;
+        var post = try root.openDir(dir.name, .{.iterate = true});
+        defer post.close();
+
+        var post_it = post.iterate();
+        while (try post_it.next()) |p| {
+
+            if (p.kind != .directory) continue;
+            var source = try post.openDir(p.name, .{.iterate = true});
+            defer source.close();
+            var source_it = source.iterate();
+
+            while (try source_it.next()) |f| {
+                if (f.kind == .directory) continue;
+                var filename = std.mem.tokenizeAny(u8, f.name, ".");
+                const file = filename.next();
+                const extension = filename.next();
+
+                if (extension != null and std.mem.eql(u8, extension.?, "norg")) {
+                    var fbuf: [2048 * 100]u8 = undefined;
+                    const text = try source.readFile(f.name, &fbuf);
+
+                    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+                    defer _ = gpa.deinit();
+                    const allocator = gpa.allocator();
+                    var arena = std.heap.ArenaAllocator.init(allocator);
+                    defer arena.deinit();
+
+                    const new_path = try std.mem.concat(arena.allocator(), u8, &[_][]const u8{dir.name, "/", p.name});
+                    try output.makePath(new_path);
+
+                    var destination = try output.openDir(new_path, .{ .iterate =  true});
+                    defer destination.close();
+
+                    const new_file_name = try std.mem.concat(arena.allocator(), u8, &[_][]const u8{file.?, ".html"});
+
+                    var new_file = try destination.createFile(new_file_name, .{});
+                    defer new_file.close();
+
+                    try toHTML(text, &new_file);
+                }
+            }
+        }
+    }
+}
+
+fn print(str: []const u8) void {
+    std.debug.print("{s}\n", .{str});
+}
+
+pub fn toHTML(input: []const u8, new_file: *std.fs.File) !void {
     const metadata = try Metadata.extract(input);
     const content = input[metadata.end..];
 
@@ -41,14 +101,10 @@ pub fn toHTML(path: []const u8) !void {
     var hs = heading.list;
     var ws = widget.list;
 
-
-    const out_file = try std.fs.createFileAbsolute(path, .{});
-    defer out_file.close();
-
+    const writer = new_file.writer();
     var i: usize = 0;
     const n: usize = list.lists.items.len + paragraph.list.items.len + heading.list.items.len + widget.list.items.len;
-    while (i < n): (i += 1) render(select(&uls, &ps, &hs, &ws), content);
-
+    while (i < n): (i += 1) try render(select(&uls, &ps, &hs, &ws), content, writer);
 }
 
 const Rendable = union(enum) {
@@ -58,16 +114,16 @@ const Rendable = union(enum) {
     w: Widget.Wdef,
 };
 
-fn render(r: Rendable, content: []const u8) void {
+fn render(r: Rendable, content: []const u8, writer: anytype) !void {
     switch (r) {
         .li => |ul|  {
-            std.debug.print("<ul>\n", .{});
-            for (ul) |li| std.debug.print("<li>{s}</li>\n", .{content[li[0]..li[1]]});
-            std.debug.print("</ul>\n", .{});
+            try writer.print("<ul>\n", .{});
+            for (ul) |li| try writer.print("<li>{s}</li>\n", .{content[li[0]..li[1]]});
+            try writer.print("</ul>\n", .{});
         },
-        .p => |paragraph| std.debug.print("<p>{s}</p>\n", .{content[paragraph[0]..paragraph[1]]}),
-        .h => |heading| std.debug.print("<h{d}>{s}</h{d}>\n", .{heading[0], content[heading[1]..heading[2]], heading[0]}),
-        .w => |widget| std.debug.print("<p>{s}</p>\n", .{content[widget.bounds[0]..widget.bounds[1]]}),
+        .p => |paragraph| try writer.print("<p>{s}</p>\n", .{content[paragraph[0]..paragraph[1]]}),
+        .h => |heading| try writer.print("<h{d}>{s}</h{d}>\n", .{heading[0], content[heading[1]..heading[2]], heading[0]}),
+        .w => |widget| try writer.print("<p>{s}</p>\n", .{content[widget.bounds[0]..widget.bounds[1]]}),
     }
 }
 
