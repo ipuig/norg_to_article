@@ -6,14 +6,14 @@ const Heading = @import("heading.zig");
 const Widget = @import("widget.zig");
 const Paragraph = @import("paragraph.zig");
 const Metadata = @import("metadata.zig");
+const copy = @import("copy.zig").copy;
 
 pub fn parse(path: []const u8) !void {
-    var root = try std.fs.openDirAbsolute(path, .{.iterate = true});
-    defer root.close();
+    var stored_posts = try std.fs.openDirAbsolute(path, .{.iterate = true});
+    defer stored_posts.close();
 
     var cwd = try std.fs.cwd().openDir(".", .{.iterate = true});
     defer cwd.close();
-
     cwd.makeDir("out") catch |err| switch(err) {
         std.fs.Dir.MakeError.PathAlreadyExists => {},
         else => unreachable
@@ -22,22 +22,33 @@ pub fn parse(path: []const u8) !void {
     var output = try cwd.openDir("out", .{});
     defer output.close();
 
-    var it = root.iterate();
-    while (try it.next()) |dir| {
-        if (std.mem.eql(u8, ".git", dir.name)) continue;
-        var post = try root.openDir(dir.name, .{.iterate = true});
+    var posts = stored_posts.iterate();
+    while (try posts.next()) |category| {
+        if (std.mem.eql(u8, ".git", category.name)) continue;
+        std.debug.print("category: {s}\n", .{category.name});
+        var post = try stored_posts.openDir(category.name, .{.iterate = true});
         defer post.close();
 
-        var post_it = post.iterate();
-        while (try post_it.next()) |p| {
+        var articles = post.iterate();
+        while (try articles.next()) |article| {
 
-            if (p.kind != .directory) continue;
-            var source = try post.openDir(p.name, .{.iterate = true});
+            if (article.kind != .directory) continue;
+            var source = try post.openDir(article.name, .{.iterate = true});
             defer source.close();
             var source_it = source.iterate();
 
             while (try source_it.next()) |f| {
-                if (f.kind == .directory) continue;
+
+                if (f.kind == .directory) {
+
+                    const current_path = try std.mem.concat(std.heap.page_allocator, u8, &[_][]const u8{category.name, "/", article.name});
+                    const in_path = try std.mem.concat(std.heap.page_allocator, u8, &[_][]const u8{path,  current_path});
+                    const out_path = try std.mem.concat(std.heap.page_allocator, u8, &[_][]const u8{"out/", current_path});
+                    try copy(in_path, out_path);
+
+                    continue;
+                }
+
                 var filename = std.mem.tokenizeAny(u8, f.name, ".");
                 const file = filename.next();
                 const extension = filename.next();
@@ -52,7 +63,7 @@ pub fn parse(path: []const u8) !void {
                     var arena = std.heap.ArenaAllocator.init(allocator);
                     defer arena.deinit();
 
-                    const new_path = try std.mem.concat(arena.allocator(), u8, &[_][]const u8{dir.name, "/", p.name});
+                    const new_path = try std.mem.concat(arena.allocator(), u8, &[_][]const u8{category.name, "/", article.name});
                     try output.makePath(new_path);
 
                     var destination = try output.openDir(new_path, .{ .iterate =  true});
@@ -68,10 +79,6 @@ pub fn parse(path: []const u8) !void {
             }
         }
     }
-}
-
-fn print(str: []const u8) void {
-    std.debug.print("{s}\n", .{str});
 }
 
 pub fn toHTML(input: []const u8, new_file: *std.fs.File) !void {
@@ -162,4 +169,3 @@ test "lists" {
     std.debug.print("pooped {d}\n", .{pooped});
     std.debug.print("at idx 0: {d}\n", .{l.items[0]});
 }
-

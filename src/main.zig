@@ -8,4 +8,6 @@ const Parser = @import("parser/parser.zig");
 
 pub fn main() !void {
     try Parser.parse("/Users/ipuig/Documents/Posts/");
+
+
 }
