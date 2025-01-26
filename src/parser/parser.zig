@@ -25,7 +25,6 @@ pub fn parse(path: []const u8) !void {
     var posts = stored_posts.iterate();
     while (try posts.next()) |category| {
         if (std.mem.eql(u8, ".git", category.name)) continue;
-        std.debug.print("category: {s}\n", .{category.name});
         var post = try stored_posts.openDir(category.name, .{.iterate = true});
         defer post.close();
 
@@ -38,14 +37,11 @@ pub fn parse(path: []const u8) !void {
             var source_it = source.iterate();
 
             while (try source_it.next()) |f| {
-
                 if (f.kind == .directory) {
-
                     const current_path = try std.mem.concat(std.heap.page_allocator, u8, &[_][]const u8{category.name, "/", article.name});
                     const in_path = try std.mem.concat(std.heap.page_allocator, u8, &[_][]const u8{path,  current_path});
                     const out_path = try std.mem.concat(std.heap.page_allocator, u8, &[_][]const u8{"out/", current_path});
                     try copy(in_path, out_path);
-
                     continue;
                 }
 
@@ -81,7 +77,7 @@ pub fn parse(path: []const u8) !void {
     }
 }
 
-pub fn toHTML(input: []const u8, new_file: *std.fs.File) !void {
+fn toHTML(input: []const u8, new_file: *std.fs.File) !void {
     const metadata = try Metadata.extract(input);
     const content = input[metadata.end..];
 
@@ -152,20 +148,4 @@ fn min(a: ?usize, b: ?usize) ?usize {
     if (a == null and b != null) return b.?;
     if (b == null and a != null) return a.?;
     return if (a.? < b.?) a.? else b.?;
-}
-
-test "lists" {
-    var l = std.ArrayList(usize).init(std.testing.allocator);
-    defer l.deinit();
-    try l.append(1);
-    try l.append(2);
-    try l.append(3);
-    try l.append(4);
-    try l.append(5);
-    try l.append(6);
-
-    std.debug.print("at idx 0: {d}\n", .{l.items[0]});
-    const pooped  = l.orderedRemove(0);
-    std.debug.print("pooped {d}\n", .{pooped});
-    std.debug.print("at idx 0: {d}\n", .{l.items[0]});
 }
