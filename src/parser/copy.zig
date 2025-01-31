@@ -1,19 +1,6 @@
 const std = @import("std");
 
-pub fn copy(src_path: []const u8, dst_path: []const u8) !void {
-    var src = try std.fs.openDirAbsolute(src_path, .{ .iterate = true });
-    defer src.close();
-
-    const cwd = std.fs.cwd();
-
-    cwd.makeDir(dst_path) catch |err| switch(err) {
-        std.fs.Dir.MakeError.PathAlreadyExists => {},
-        else => unreachable
-    };
-
-    var dst = try cwd.openDir(dst_path, .{ .iterate = true });
-    defer dst.close();
-
+pub fn copy(src: std.fs.Dir, dst: std.fs.Dir) !void {
     var root = src.iterate();
     while (try root.next()) |child| {
         switch (child.kind) {

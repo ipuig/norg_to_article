@@ -7,13 +7,16 @@ const Widget = @import("parser/widget.zig");
 const Parser = @import("parser/parser.zig");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    var args = try std.process.argsWithAllocator(gpa.allocator());
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const allocator = arena.allocator();
+    defer arena.deinit();
+    var args = try std.process.argsWithAllocator(allocator);
 
     var no_args = args.skip();
+    // TODO: serialise and read on web svr
     while (args.next()) |arg| { 
-        try Parser.parse(arg);
+        const list = try Parser.parse(arg, allocator);
+        for (list.items) |category| std.debug.print("{any}\n", .{category});
         no_args = false;
         return;
     }
@@ -29,3 +32,7 @@ fn usage() !void {
     try bw.flush();
 
 }
+
+const Json = struct {
+
+};
